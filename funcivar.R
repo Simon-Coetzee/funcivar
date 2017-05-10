@@ -332,3 +332,23 @@ change.to.search.genome <- function(granges.object, search.genome) {
   }
   return(granges.object)
 }
+                              
+                               
+read.SNPsnaps <- function (x, genome="hg19") {
+  bkg.snps <- melt(t(fread(x, sep = '\t', header = TRUE, data.table = FALSE)))
+  colnames(bkg.snps)<- c("SNP.set", "tag.idx", "match.snp")
+  tail (bkg.snps)
+  head (bkg.snps)
+  odd  <- function(x) x%%2!=0
+  even <- function(x) x%%2==0
+  bkg.snps$chromosome <- as.character(paste("chr", unlist(strsplit(as.character(bkg.snps$match.snp), split=':'))[odd(1:(length(bkg.snps$SNP.set)*2))], sep=''))
+  bkg.snps$snp.chrom  <- as.numeric(unlist(strsplit(as.character(bkg.snps$match.snp), split=':'))[odd(1:(length(bkg.snps$SNP.set)*2))])
+  bkg.snps$snp.loc    <- as.numeric(unlist(strsplit(as.character(bkg.snps$match.snp), split=':'))[even(1:(length(bkg.snps$SNP.set)*2))])
+  grsnps <- GRanges(seqnames = bkg.snps$chromosome,
+                    ranges  = IRanges(start = bkg.snps$snp.loc,
+                                      end   = bkg.snps$snp.loc,
+                                      names = bkg.snps$match.snp),
+                    strand  = '*',
+                    setID   = bkg.snps$SNP.set,
+                    seqinfo = Seqinfo(genome=genome))
+}
