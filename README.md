@@ -71,7 +71,7 @@ enrich.plot
 ```
 ```{r}
 enrich.plot.fisher <- ggplot(snp.enrichment, aes(sample, oddsratio, group = colorf)) +
-  geom_pointrange(aes(ymin = odds.lower, ymax = odds.upper, color = colorf), fatten = 1.2, size = 2) +
+  geom_crossbar(aes(ymin = odds.lower, ymax = odds.upper, color = colorf), fatten = 1.2, size = 2) +
   theme_minimal() +
   scale_color_identity() +
   geom_hline(yintercept = 0, color = "#c4c4c4", alpha = 0.5) +
@@ -83,4 +83,5 @@ enrich.plot.fisher <- ggplot(snp.enrichment, aes(sample, oddsratio, group = colo
   geom_hline(yintercept = 1, color = "#ececec", alpha = 0.2) + 
   annotate("rect", xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=1,alpha=0.1,fill="black") +
   scale_x_discrete(name = "Sample") 
+enrich.plot.fisher
 ```
