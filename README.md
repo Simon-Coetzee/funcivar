@@ -43,11 +43,15 @@ snp.enrichment <- enrich.snps$enrichment
 ```{r}
 ## set up significance
 snp.enrichment$sig <- "not.significant"
+snp.enrichment$sigf <- "not.significant"
 snp.enrichment[snp.enrichment$probability > 0.975 | snp.enrichment$probability < 0.025, "sig"] <- "significant.e"
+snp.enrichment[snp.enrichment$odds.lower > 1, "sigf"] <- "significant.e"
 
 ## set up colors
 snp.enrichment$color <- "#ff0000"
+snp.enrichment$colorf <- "#ff0000" # fisher tests
 snp.enrichment[snp.enrichment$sig == "not.significant", "color"] <- "#ececec"
+snp.enrichment[snp.enrichment$sig == "not.significant", "colorf"] <- "#ececec" # fisher tests
 ```
 ```{r}
 library(ggplot2)
@@ -64,4 +68,19 @@ enrich.plot <- ggplot(snp.enrichment, aes(sample, difference, group = color)) +
   scale_x_discrete(name = "Sample") +
   scale_y_continuous(name = "difference", breaks =  c(0, 0.05, 0.10, 0.15, 0.20))
 enrich.plot
+```
+```{r}
+enrich.plot.fisher <- ggplot(snp.enrichment, aes(sample, oddsratio, group = colorf)) +
+  geom_pointrange(aes(ymin = odds.lower, ymax = odds.upper, color = colorf), fatten = 1.2, size = 2) +
+  theme_minimal() +
+  scale_color_identity() +
+  geom_hline(yintercept = 0, color = "#c4c4c4", alpha = 0.5) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        legend.position="none",
+        panel.grid.major.x = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(),
+        strip.text.y = element_text(angle = 0, hjust = 0, vjust = 0.5, size = rel(1.5)),
+        strip.text.x = element_text(angle = 270, hjust = 0.5, vjust = 1, size = rel(1.5))) +
+  geom_hline(yintercept = 1, color = "#ececec", alpha = 0.2) + 
+  annotate("rect", xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=1,alpha=0.1,fill="black") +
+  scale_x_discrete(name = "Sample") 
 ```
