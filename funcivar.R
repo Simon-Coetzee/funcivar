@@ -72,6 +72,40 @@ GetBioFeatures <- function(bio.features.loc = NULL, search.term = NULL, biofeatu
   }
 }
 
+                               
+GetSegmentations <- function(bio.features.loc = NULL) {
+    if (!is.null(bio.features.loc)) {
+        peakfiles.pat <- "SEGMENTATION.bed$"
+        if (length(list.files(path = bio.features.loc, pattern = peakfiles.pat)) >= 1) {
+            bed.list <- lapply(list.files(path = bio.features.loc, pattern = peakfiles.pat), function(x) {
+                x.gr <- import.bed(paste(bio.features.loc, x, sep = ""), genome = "hg19", colnames = c("chrom", "start", "end", "name"))
+                seq.ranges <- c(paste("chr", 1:22, sep = ""), "chrX", "chrY")
+                x.gr <- sort(x.gr)
+                seqlevels(x.gr, force = TRUE) <- seq.ranges
+                # mcols(x.gr) <- NULL
+                name <- str_split(x, pattern = "\\.")[[1]]
+                name <- name[-length(name)]
+                name <- paste0(name, collapse = ".")
+                mcols(x.gr)[, "feature"] <- mcols(x.gr)[, "name"]
+                mcols(x.gr)[, "name"] <- name
+                strand(x.gr) <- "*"
+                return(x.gr)
+            })
+        } else {
+            bed.list <- NULL
+        }
+        if (is.null(bed.list)) {
+            return(GRangesList())
+        } else {
+            return(do.call(c, unname(bed.list)))
+        }
+    } else {
+        return(NULL)
+    }
+}
+
+                               
+                               
 enrich.segments <- function(fg = NULL, bg = NULL,
                             feature = NULL, test = "fisher.test", CI = 0.95,
                             prior = c(a = 1, b = 1), feature.search = NULL,
