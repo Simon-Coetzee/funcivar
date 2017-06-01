@@ -76,9 +76,9 @@ GetBioFeatures <- function(bio.features.loc = NULL, search.term = NULL, biofeatu
 GetSegmentations <- function(bio.features.loc = NULL) {
     if (!is.null(bio.features.loc)) {
         peakfiles.pat <- "SEGMENTATION.bed$"
-        if (length(list.files(path = bio.features.loc, pattern = peakfiles.pat)) >= 1) {
-            bed.list <- lapply(list.files(path = bio.features.loc, pattern = peakfiles.pat), function(x) {
-                x.gr <- import.bed(paste(bio.features.loc, x, sep = ""), genome = "hg19", colnames = c("chrom", "start", "end", "name"))
+        if (length(list.files(path = bio.features.loc, pattern = peakfiles.pat, ignore.case = T)) >= 1) {
+            bed.list <- lapply(list.files(path = bio.features.loc, pattern = peakfiles.pat, ignore.case = T), function(x) {
+                x.gr <- import.bed(file.path(bio.features.loc, x), genome = "hg38", colnames = c("chrom", "start", "end", "name"))
                 seq.ranges <- c(paste("chr", 1:22, sep = ""), "chrX", "chrY")
                 x.gr <- sort(x.gr)
                 seqlevels(x.gr, force = TRUE) <- seq.ranges
