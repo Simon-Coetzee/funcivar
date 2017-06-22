@@ -273,8 +273,10 @@ enrich.segments <- function(fg = NULL, bg = NULL,
   } else {
     stop("test not recognized")
   }
+  if (sum(enrichment$fg.success)==0) warning("There are no foreground overlaps with the biofeature set; enrichment calculations are erroneous!")
   return(list(enrichment = enrichment, overlaps = fg.return))
 }
+
 
 make.overlap.matrix <- function(query.over, subject.over, samples) {
   overlaps <- data.frame(qhits = query.over,
