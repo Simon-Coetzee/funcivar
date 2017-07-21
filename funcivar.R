@@ -5,6 +5,282 @@ library(data.table)
 library(stringr)
 
 
+
+
+
+#' @importFrom VariantAnnotation ScanVcfParam
+#' @importFrom Rsamtools TabixFile
+#' @export
+GetVariantsInWindow <- function(file, position, type = "vcf") {
+  if (type == "vcf") {
+    params <- ScanVcfParam(which = position)
+    vcf <- TabixFile(file)
+    variants <- try(GetVariantsInWindowVCF(file, params))
+    if (inherits(variants, "try-error")) {
+      variants <- getFILE(file, GetVariantsInWindowVCF, params, N.TRIES = 3L)
+    }
+    return(variants)
+  } else if (type == "bed") {
+    message("we are doing bed files")
+  } else {
+    stop("type ", type, " is not yet implemented")
+  }
+}
+
+#' @importFrom GenomeInfoDb seqlevelsStyle keepSeqlevels seqlevelsInUse
+GetVariantsInWindowVCF <- function(file, param) {
+  vcf <- readVcf(file = file, genome = "hg19", param = param)
+  if (nrow(vcf) < 1L) stop("no variants found in interval; \n this is sometimes an error in fetching remote file, try with a local vcf")
+  vcf <- keepSeqlevels(vcf, seqlevelsInUse(vcf))
+  seqlevelsStyle(vcf) <- "UCSC"
+  metadata(vcf)$overlap.offset <- NA
+  return(vcf)
+}
+
+#' @importFrom S4Vectors merge
+#' @importFrom SummarizedExperiment colData
+setPopulation <- function(vcf, sample_sheet) {
+  population <- colData(vcf)
+  if (!("Samples" %in% colnames(population))) {
+    stop("vcf does not contain sample information")
+  }
+  population$Samples <- rownames(population)
+  sample.col <- which(grepl(pattern = "sample",
+                            x = colnames(sample_sheet),
+                            ignore.case = TRUE))
+  if (length(sample.col) > 0L) {
+    sample_sheet <- DataFrame(sample_sheet)
+    colnames(sample_sheet)[sample.col] <- "Samples"
+    population <- merge(population, sample_sheet, all.x = TRUE, all.y = FALSE, by = "Samples")
+    rownames(population) <- population$Samples
+    population <- population[, colnames(population) != "Samples"]
+    colData(vcf) <- population
+    return(vcf)
+  } else {
+    stop("sample sheet does not contain sample column")
+  }
+}
+
+
+
+
+#' importFrom VariantAnnoation snpSummary isSNV
+CalcLD <- function(vcf, index, population, return = "valid") {
+  ## check input
+  if (index %in% rownames(vcf)) {
+    if (!isSNV(vcf[rownames(vcf) %in% index, ])) {
+      stop("funciVar can only calculate LD for SNVs at this time")
+    }
+  } else {
+    stop("index snp ", index, " not found in current vcf")
+  }
+  samples <- as.data.frame(colData(vcf))
+  samples.col <- which(samples == population, arr.ind = TRUE)
+  if (nrow(samples.col) > 0L) {
+    ## metadata
+    samples.col <- samples.col[1, "col"]
+    pop.samples <- rownames(samples)[samples[, samples.col] == population]
+    vcf <- vcf[, pop.samples]
+    vcf.snv <- isSNV(vcf)
+    if (return == "valid") {
+      if (any(!vcf.snv)) {
+        vcf <- vcf[vcf.snv, ]
+        warning("CalcLD only operates on SNVs some of your variants were dropped at this step, set return = 'all', to override this behaviour")
+      }
+      vcf <- vcf[isSNV(vcf, singleAltOnly = TRUE), ]
+    }
+    vcf.ranges <- rowRanges(vcf)[, c("REF", "ALT")]
+    mcols(vcf.ranges) <- c(mcols(vcf.ranges), snpSummary(vcf)[, c("a0Freq", "a1Freq", "HWEpvalue")])
+    colnames(mcols(vcf.ranges)) <- c("ref", "alt", "refAlleleFreq", "altAlleleFreq", "HWEpvalue")
+    mcols(vcf.ranges)[, "indexSNP"] <- index
+    mcols(vcf.ranges)[, "population"] <- population
+    mcols(vcf.ranges)[, "distanceToIndex"] <- abs(start(vcf.ranges[index, ]) - start(vcf.ranges))
+    ## genotype
+    vcf.geno <- genotypeToSnpMatrix(vcf)$genotypes
+    vcf.ld <- ld(vcf.geno, vcf.geno[, index], stats = c('D.prime', 'R.squared'))
+    mcols(vcf.ranges)$D.prime <- vcf.ld$D.prime[, 1]
+    mcols(vcf.ranges)$R.squared <- vcf.ld$R.squared[, 1]
+    rowRanges(vcf) <- vcf.ranges
+  } else {
+    stop("your population was not found in your vcf.\nUse setPopulation() to add your sample descriptions, and double check that ",
+         population, " is present")
+  }
+  return(vcf)
+}
+
+
+
+getFILE <- function(FILE, FUN, ..., N.TRIES=1L) {
+  N.TRIES <- as.integer(N.TRIES)
+  stopifnot(length(N.TRIES) == 1L, !is.na(N.TRIES))
+
+  while (N.TRIES > 0L) {
+    result <- tryCatch(FUN(FILE, ...), error = identity)
+    if (!inherits(result, "error"))
+      break
+    N.TRIES <- N.TRIES - 1L
+  }
+
+  if (N.TRIES == 0L) {
+    stop("'getFILE()' failed:",
+         "\n  FILE: ", FILE,
+         "\n  error: ", conditionMessage(result))
+  }
+
+  result
+}
+
+#' @importFrom data.table fread
+#' @importFrom stringr str_replace
+#' @importFrom GenomeInfoDb Seqinfo
+#' @importFrom GenomicRanges GRangesList GRanges
+#' @importFrom IRanges IRanges
+#' @importFrom S4Vectors mcols mcols<-
+#' @importFrom readr read_tsv cols_only col_character col_integer col_number
+GetBioFeatures <- function(files, genome) {
+  if (length(files) < 1L) return(NULL)
+  good.files <- sapply(files, function(x) file.exists(x))
+  if (sum(good.files) < length(files)) {
+    if (sum(!good.files) <= 5L) {
+      stop(paste("cannot find the following", sum(!good.files), "files:\n"),
+           paste0(files[!good.files], "\n"))
+    } else {
+      stop(paste("cannot find", sum(!good.files), "files. Some of which are:\n"),
+           paste0(head(files[!good.files], n = 5L), "\n"))
+    }
+  } else {
+    genome <- tryCatch(Seqinfo(genome = genome), error = NULL)
+    bed.list <- lapply(files,
+                       function(file, s.info) {
+                         if (grepl(".narrowPeak", file, ignore.case = TRUE)) {
+                           col.types <- cols_only(chr = col_character(),
+                                                  start = col_integer(),
+                                                  end = col_integer(),
+                                                  name = col_character(),
+                                                  score = col_integer(),
+                                                  strand = col_character(),
+                                                  signalValue = col_number())
+                           col.names <- c("chr", "start", "end", "name", "score", "strand", "signalValue")
+                           col.numbers <- c(1:7)
+                         } else {
+                           col.types <- cols_only(chr = col_character(),
+                                                  start = col_integer(),
+                                                  end = col_integer())
+                           col.names <- c("chr", "start", "end")
+                           col.numbers <- c(1:3)
+                         }
+                         if (any(grepl(".gz$", file))) {
+                           xf <- suppressMessages(suppressWarnings(read_tsv(file = file, col_names = col.names,
+                                                                            col_types = col.types,
+                                                                            progress = FALSE)))
+                         } else {
+                           xf <- fread(input = file, sep = "\t", header = FALSE,
+                                       select = col.numbers, skip = "chr",
+                                       col.names = col.names,
+                                       encoding = "UTF-8",
+                                       stringsAsFactors = FALSE,
+                                       data.table = FALSE, showProgress = FALSE)
+                         }
+                         if (ncol(xf) < 7) xf$signalValue <- NA
+                         xf <- try(GRanges(seqnames = xf$chr,
+                                           ranges = IRanges(start = xf$start + 1L,
+                                                            end = xf$end),
+                                           strand = "*",
+                                           feature = base::rep.int(basename(file), nrow(xf)),
+                                           signalValue = xf$signalValue,
+                                           seqinfo = s.info))
+                         return(xf)
+                       }, s.info = genome)
+  }
+  if (is.null(bed.list)) {
+    return(GRangesList())
+  } else {
+    bed.list <- GRangesList(bed.list)
+    names(bed.list) <- basename(files)
+    return(bed.list)
+  }
+}
+
+make.overlap.matrix <- function(overlaps) {
+  overlap.table <- table(overlaps)
+  output.matrix <- matrix(overlap.table,
+                          nrow = nrow(overlap.table),
+                          dimnames = list(rownames(overlap.table),
+                                          colnames(overlap.table)))
+
+  if (!is(output.matrix, "matrix")) {
+    dim(output.matrix) <- c(length(output.matrix), 1)
+    dimnames(output.matrix) <- list(rownames(overlap.table),
+                                    colnames(overlap.table))
+  }
+  output.matrix[output.matrix > 1L] <- 1L
+  return(output.matrix)
+}
+
+
+#my.remote.vcf <- "ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr22.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz"
+#alt.remote.vcf <- "http://storage.googleapis.com/gnomad-public/release-170228/vcf/genomes/gnomad.genomes.r2.0.1.sites.22.vcf.gz"
+#my.local.vcf <- "~/ALL.chr22.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz"
+#my.pos <- as("22:32056759-34059959", "GRanges")
+#my.samples <- read.delim("http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel", stringsAsFactors = FALSE)
+#my.samples <- my.samples[, c(1,2,3,4)]
+#my.files <- list.files("~/test_features/", full.names = T)
+#
+#test.vcf <- GetVariantsInWindow(file = my.local.vcf, position = my.pos)
+#test.features <- GetBioFeatures(files = my.files[1:2], genome = "hg19")
+#test.vcf <- setPopulation(test.vcf, sample_sheet = my.samples)
+##test.vcf2 <- CalcLD(test.vcf, "rs4820988", "EUR")
+#test.vcf2 <- GetOverlaps(test.vcf2, test.features)
+#ShowOverlaps(test.vcf2)
+
+
+enrich.segments <- function() {
+
+}
+
+enrich.features <- function(fg = NULL, bg = NULL) {
+  if (!is(fg, "VCF")) {
+
+  } else {
+    fg.olap <- ShowOverlaps(fg)[rowSums(as.data.frame(mcols(ShowOverlaps(fg))) > 0L) != 0L, ]
+    bg.olap <- ShowOverlaps(bg)[rowSums(as.data.frame(mcols(ShowOverlaps(bg))) > 0L) != 0L, ]
+  }
+
+}
+
+SplitVcfLd <- function(vcf, ld = c(metric = "R.squared", cutoff = 0.8, maf = 0.01), strict.subset = TRUE) {
+  if (!is(vcf, "VCF")) {
+    stop("parameter vcf must be a VCF object")
+  }
+  if (!all(names(ld) %in% c("metric", "cutoff", "maf"))) {
+    stop("parameter ld must contain the fields 'metric', 'cutoff', and 'maf'")
+  }
+  if (!(ld[["metric"]] %in% colnames(rowData(vcf)))) {
+    stop("ld[['metric']] must be present in rowData(vcf)")
+  }
+  if (!(ld[["maf"]] >= 0 && ld[["maf"]] <= 1)) {
+    stop("ld[['maf']] must be between the values of 0 and 1")
+  }
+  filter <- rowData(vcf)[, "altAlleleFreq"] >= ld[["maf"]]
+  fg.filter <- filter & rowData(vcf)[, ld[["metric"]]] >= ld[["cutoff"]]
+  if (strict.subset) {
+    bg.filter <- fg.filter | rowData(vcf)[, ld[["metric"]]] < ld[["cutoff"]]
+  } else {
+    bg.filter <- filter & !rowData(vcf)[, ld[["metric"]]] >= ld[["cutoff"]]
+  }
+  metadata(vcf)$strict.subset <- strict.subset
+  bg.filter <- fg.filter | rowData(vcf)[, ld[["metric"]]] < ld[["cutoff"]]
+  return(list(fg = vcf[fg.filter & !is.na(fg.filter), ], bg = vcf[bg.filter & !is.na(bg.filter), ]))
+}
+
+
+
+
+
+
+
+
+
 #### FUNCTIONS
 
 #' Read Regions File
