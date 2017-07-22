@@ -403,6 +403,7 @@ SplitVcfLd <- function(vcf, ld = c(metric = "R.squared", cutoff = 0.8, maf = 0.0
 #'   variant set in the features, or a list including the overlaps of the the
 #'   variants and features, in addition to the enrichment data.frame
 #'
+#' @importFrom stats fisher.test formula as.formula quantile rbeta
 #' @export
 CalculateEnrichment <- function(variants, features, feature.type = "biofeatures",
                             CI = 0.95, prior = c(a = 0.5, b = 0.5),
@@ -722,7 +723,7 @@ make.overlap.matrix <- function(overlaps) {
 #' @importFrom pbapply pblapply
 enrich.segments <- function(fg, bg, features, CI, prior, strict.subset, return.overlaps) {
   if (is(features, "GRangesList")) {
-    features <- do.call(c, unlist(features, use.names = F))
+    features <- do.call(c, unlist(features, use.names = FALSE))
   }
   if (all(c("sample", "state") %in% colnames(mcols(features)))) {
     states <- unique(mcols(features)$state)
@@ -778,7 +779,7 @@ enrich.segments <- function(fg, bg, features, CI, prior, strict.subset, return.o
   }
 }
 
-#' @importFrom stats fisher.test formula as.formula quantile rbeta
+
 enrich.features <- function(fg, bg, CI, prior, strict.subset) {
   if (!is(fg, "VCF")) {
 
