@@ -13,6 +13,7 @@
 #' @importFrom VariantAnnotation ScanVcfParam
 #' @importFrom Rsamtools TabixFile
 #' @importFrom rtracklayer import.bed
+#' @importFrom GenomeInfoDb seqlevelsStyle seqlevelsStyle<-
 #' @export
 GetVariantsInWindow <- function(file, position, genome = "hg19", type = "vcf") {
   if (tolower(type) == "vcf") {
@@ -55,7 +56,7 @@ GetVariantsInWindow <- function(file, position, genome = "hg19", type = "vcf") {
 #' @return returns the vcf that was passed as an argument with it's colData()
 #'   modified to include the population data
 #' @importFrom S4Vectors merge
-#' @importFrom SummarizedExperiment colData colData<-
+#' @importFrom SummarizedExperiment colData colData<- rowData rowData<-
 #' @export
 SetPopulation <- function(vcf, sample_sheet) {
   population <- colData(vcf)
@@ -102,8 +103,11 @@ SetPopulation <- function(vcf, sample_sheet) {
 #'   modified to include the information relative to the index. Including ref,
 #'   and alt alleles, allele frequencies (in the population queried), distance
 #'   to the index, D prime and R squared.
-#' @importFrom VariantAnnotation snpSummary isSNV
+#' @importFrom VariantAnnotation snpSummary isSNV genotypeToSnpMatrix
+#' @importFrom SummarizedExperiment rowRanges rowRanges<-
 #' @importFrom snpStats ld
+#' @importFrom BiocGenerics start end
+#' @import methods
 #' @export
 CalcLD <- function(vcf, index, population, return = "valid", force = TRUE) {
   ## check input
@@ -190,8 +194,9 @@ CalcLD <- function(vcf, index, population, return = "valid", force = TRUE) {
 #' @importFrom GenomeInfoDb Seqinfo
 #' @importFrom GenomicRanges GRangesList GRanges
 #' @importFrom IRanges IRanges
-#' @importFrom S4Vectors mcols mcols<-
+#' @importFrom S4Vectors mcols mcols<- metadata metadata<- DataFrame
 #' @importFrom readr read_tsv cols_only col_character col_integer col_number
+#' @importFrom utils head
 #' @export
 GetBioFeatures <- function(files, genome) {
   if (length(files) < 1L) return(NULL)
@@ -650,7 +655,7 @@ PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NU
     ep <- ep + facet_wrap(my.form, ncol = ncol, strip.position = ifelse(ncol > 1L, "top", "right"))
   } else if (is.null(block1) & !is.null(block2)) {
     my.form <- as.formula(paste("~", block2))
-    ep <- ep + facet_grid(my.form, ncol = ncol, strip.position = ifelse(ncol > 1L, "top", "right"))
+    ep <- ep + facet_wrap(my.form, ncol = ncol, strip.position = ifelse(ncol > 1L, "top", "right"))
   }
 
   if(color.is == "cont") {
@@ -773,6 +778,7 @@ enrich.segments <- function(fg, bg, features, CI, prior, strict.subset, return.o
   }
 }
 
+#' @importFrom stats fisher.test formula as.formula quantile rbeta
 enrich.features <- function(fg, bg, CI, prior, strict.subset) {
   if (!is(fg, "VCF")) {
 
