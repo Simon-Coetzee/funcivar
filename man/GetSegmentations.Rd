@@ -9,9 +9,9 @@ GetSegmentations(files, genome)
 }
 \arguments{
 \item{files}{A character vector containing a list of files to import. These
-files need to be BED 3 + 2 format. Column 4 contains the sample name,
-Column 5 contains the chromatin state. And they need to be completely
-disjoint intervals.}
+files need to be BED9 format. see
+\url{https://genome.ucsc.edu/FAQ/FAQformat.html#format1}. And they need to
+be completely disjoint intervals.}
 
 \item{genome}{A character vector describing the genome build against which
 the segmentations were created, e.g. "hg19", "b37", "hg38", "mm10".}

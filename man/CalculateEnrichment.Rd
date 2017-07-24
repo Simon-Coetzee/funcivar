@@ -19,7 +19,7 @@ enrichment of the variants against. This field is optional if feature.type
 performed against them.}
 
 \item{feature.type}{a character vector, either "biofeatures" for generic
-feature overlaps, or "segmenations" specifying that the features slot is
+feature overlaps, or "segmentations" specifying that the features slot is
 populated with disjoint genomic segmentations imported by
 GetSegmentations()}
 
@@ -39,7 +39,7 @@ variants and features be returned.}
 \value{
 either a data.frame indicating the enrichment statistics of the
   variant set in the features, or a list including the overlaps of the the
-  variants and features, in addition to the enrichment data.frame
+  variants and features, in addition to the enrichment data.frame. log1p(oddsratio) are reported from fisher.test
 }
 \description{
 Calculates the enrichment of foreground variants vs background
