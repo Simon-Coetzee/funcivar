@@ -288,6 +288,7 @@ GetSegmentations <- function(files) {
     return(GRangesList())
   } else {
     bed.list <- GRangesList(bed.list)
+    names(bed.list) <- bed.names
     return(bed.list)
   }
 }
