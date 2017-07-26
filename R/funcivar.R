@@ -283,7 +283,7 @@ GetSegmentations <- function(files) {
     bed.name <- tryCatch(bed@trackLine@name, error = NA)
   })
   bed.names[is.na(bed.names)] <- files[is.na(bed.names)]
-  bed.list <- Map(format.bed, bed.list, bed.name)
+  bed.list <- Map(format.bed, bed.list, bed.names)
   if (is.null(bed.list)) {
     return(GRangesList())
   } else {
