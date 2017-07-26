@@ -273,18 +273,21 @@ GetBioFeatures <- function(files, genome) {
 #'   the segmentations were created, e.g. "hg19", "b37", "hg38", "mm10".
 #'
 #' @return A GRangesList containing the segmentations imported.
-#'
+#' @importFrom RCurl url.exists
 #' @export
 GetSegmentations <- function(files, genome) {
   if (length(files) < 1L) return(NULL)
   good.files <- sapply(files, function(x) file.exists(x))
   if (sum(good.files) < length(files)) {
-    if (sum(!good.files) <= 5L) {
-      stop(paste("cannot find the following", sum(!good.files), "files:\n"),
-           paste0(files[!good.files], "\n"))
-    } else {
-      stop(paste("cannot find", sum(!good.files), "files. Some of which are:\n"),
-           paste0(head(files[!good.files], n = 5L), "\n"))
+    good.urls <- sapply(files[!good.files], function(x) url.exists(x))
+    if(sum(good.urls, good.files) < length(files)) {
+      if (sum(!good.files) <= 5L) {
+        stop(paste("cannot find the following", sum(!good.files), "files:\n"),
+             paste0(files[!good.files], "\n"))
+      } else {
+        stop(paste("cannot find", sum(!good.files), "files. Some of which are:\n"),
+             paste0(head(files[!good.files], n = 5L), "\n"))
+      }
     }
   } else {
     genome <- tryCatch(Seqinfo(genome = genome), error = NULL)
