@@ -2,7 +2,7 @@ Package: funciVar
 Type: Package
 Title: Calculate overlaps and enrichment between genomic 
   variants and genomic features or segmentations
-Version: 0.1.1
+Version: 0.1.2
 Author: Simon Coetzee
 Maintainer: Simon Coetzee <simon.coetzee@cshs.org>
 Description: Calculate overlaps and enrichment between 
@@ -19,7 +19,7 @@ Imports: ggplot2, BiocGenerics, methods, GenomeInfoDb,
   SummarizedExperiment, VariantAnnotation, data.table, dplyr, 
   grDevices, pbapply, readr, rtracklayer, snpStats, scales, 
   stringr, stats, utils
-Suggests: knitr
+Suggests: knitr, RCurl
 VignetteBuilder: knitr
 biocViews: Visualization, VariantAnnotation, 
   LinkageDisequilibrium

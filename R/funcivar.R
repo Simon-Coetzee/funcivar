@@ -279,7 +279,10 @@ GetSegmentations <- function(files, genome) {
   if (length(files) < 1L) return(NULL)
   good.files <- sapply(files, function(x) file.exists(x))
   if (sum(good.files) < length(files)) {
-    good.urls <- sapply(files[!good.files], function(x) url.exists(x))
+    if(requireNamespace("RCurl", quietly = TRUE)) {
+      good.urls <- sapply(files[!good.files], function(x) url.exists(x))
+      good.files <- good.urls | good.files
+    }
     if(sum(good.urls, good.files) < length(files)) {
       if (sum(!good.files) <= 5L) {
         stop(paste("cannot find the following", sum(!good.files), "files:\n"),
