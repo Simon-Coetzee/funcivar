@@ -297,6 +297,7 @@ format.bed <- function(bed, name) {
   mcols(bed) <- NULL
   mcols(bed)$sample <- name
   mcols(bed)$state <- bed.m$name
+  return(bed)
 }
 
 #' Split VCF by Linkage Disequilibrium
