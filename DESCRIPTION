@@ -19,7 +19,7 @@ Imports: ggplot2, BiocGenerics, methods, GenomeInfoDb,
   SummarizedExperiment, VariantAnnotation, data.table, dplyr, 
   grDevices, pbapply, readr, rtracklayer, snpStats, scales, 
   stringr, stats, utils
-Suggests: knitr, RCurl
+Suggests: knitr
 VignetteBuilder: knitr
 biocViews: Visualization, VariantAnnotation, 
   LinkageDisequilibrium

@@ -273,71 +273,30 @@ GetBioFeatures <- function(files, genome) {
 #'   the segmentations were created, e.g. "hg19", "b37", "hg38", "mm10".
 #'
 #' @return A GRangesList containing the segmentations imported.
-#' @importFrom RCurl url.exists
+#' @importFrom rtracklayer import.bed
 #' @export
-GetSegmentations <- function(files, genome) {
-  if (length(files) < 1L) return(NULL)
-  good.files <- sapply(files, function(x) file.exists(x))
-  if (sum(good.files) < length(files)) {
-    if(requireNamespace("RCurl", quietly = TRUE)) {
-      good.urls <- sapply(files[!good.files], function(x) url.exists(x))
-      good.files <- good.urls | good.files
-    }
-    if(sum(good.urls, good.files) < length(files)) {
-      if (sum(!good.files) <= 5L) {
-        stop(paste("cannot find the following", sum(!good.files), "files:\n"),
-             paste0(files[!good.files], "\n"))
-      } else {
-        stop(paste("cannot find", sum(!good.files), "files. Some of which are:\n"),
-             paste0(head(files[!good.files], n = 5L), "\n"))
-      }
-    }
-  } else {
-    genome <- tryCatch(Seqinfo(genome = genome), error = NULL)
-    bed.list <- lapply(files,
-                       function(file, s.info) {
-                         col.types <- cols_only(chr = col_character(),
-                                                start = col_integer(),
-                                                end = col_integer(),
-                                                state = col_character(),
-                                                score = col_number(),
-                                                strand = col_character(),
-                                                thickStart = col_integer(),
-                                                thickEnd = col_integer(),
-                                                color = col_character())
-                         col.names <- c("chr", "start", "end", "state", "score", "strand", "thickStart", "thickEnd", "color")
-                         col.numbers <- c(1:9)
-                         if (any(grepl(".gz$", file))) {
-                           xf <- suppressMessages(suppressWarnings(read_tsv(file = file, col_names = col.names,
-                                                                            col_types = col.types,
-                                                                            progress = FALSE)))
-                         } else {
-                           xf <- fread(input = file, sep = "\t", header = FALSE,
-                                       select = col.numbers, skip = "chr",
-                                       col.names = col.names,
-                                       encoding = "UTF-8",
-                                       stringsAsFactors = FALSE,
-                                       data.table = FALSE, showProgress = FALSE)
-                         }
-                         xf <- try(GRanges(seqnames = xf$chr,
-                                           ranges = IRanges(start = xf$start + 1L,
-                                                            end = xf$end),
-                                           strand = "*",
-                                           sample = basename(file),
-                                           state = xf$state,
-                                           seqinfo = s.info))
-                         return(xf)
-                       }, s.info = genome)
-  }
+GetSegmentations <- function(files) {
+  bed.list <- sapply(files, function(file) {
+    bed <- import.bed(file)
+  })
+  bed.names <- sapply(bed.list, function(bed) {
+    bed.name <- bed@trackLine@name
+  })
+  bed.list <- Map(format.bed, bed, bed.name)
   if (is.null(bed.list)) {
     return(GRangesList())
   } else {
     bed.list <- GRangesList(bed.list)
-    names(bed.list) <- basename(files)
     return(bed.list)
   }
 }
 
+format.bed <- function(bed, name) {
+  bed.m <- mcols(bed)
+  mcols(bed) <- NULL
+  mcols(bed)$sample <- name
+  mcols(bed)$state <- bed.m$name
+}
 
 #' Split VCF by Linkage Disequilibrium
 #' @description Splits a VCF file into foreground and background variant sets based upon a
