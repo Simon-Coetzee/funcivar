@@ -280,9 +280,10 @@ GetSegmentations <- function(files) {
     bed <- import.bed(file)
   })
   bed.names <- sapply(bed.list, function(bed) {
-    bed.name <- bed@trackLine@name
+    bed.name <- tryCatch(bed@trackLine@name, error = NA)
   })
-  bed.list <- Map(format.bed, bed, bed.name)
+  bed.names[is.na(bed.names)] <- files[is.na(bed.names)]
+  bed.list <- Map(format.bed, bed.list, bed.name)
   if (is.null(bed.list)) {
     return(GRangesList())
   } else {
