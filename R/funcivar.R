@@ -1,9 +1,12 @@
 #' Import Variants
-#' @description Import variants from VCF or BED files, optionally restricted to a specific window.
+#' @description Import variants from VCF or BED files, optionally restricted to
+#'   a specific window.
 #' @param file A character vector describing a file to read
 #'
 #' @param position An optional GRanges object defining the coordinates of the
 #'   file to import
+#' @param samples An optional data.frame or DataFrame a data.frame with columns
+#'   describing the sample and population that you may wish to filter on
 #' @param type A character vector stating that the filetype is either 'vcf' or
 #'   'bed'
 #' @param genome A character vector describing the genome build against which
@@ -15,7 +18,7 @@
 #' @importFrom rtracklayer import.bed
 #' @importFrom GenomeInfoDb seqlevelsStyle seqlevelsStyle<-
 #' @export
-GetVariantsInWindow <- function(file, position, genome = "hg19", type = "vcf") {
+GetVariantsRegion <- function(file, position, samples, genome = "hg19", type = "vcf") {
   if (tolower(type) == "vcf") {
     if(!missing(position)) {
       if(is(position, "GRanges")) {
@@ -34,8 +37,14 @@ GetVariantsInWindow <- function(file, position, genome = "hg19", type = "vcf") {
     }
     vcf <- TabixFile(file)
     variants <- getFILE(file, GetVariantsInWindowVCF, params, genome, N.TRIES = 3L)
+    if(!missing(samples)) {
+      variants <- AddSampleData(variants, samples)
+    }
     return(variants)
   } else if (tolower(type) == "bed") {
+    if(!missing(samples)) {
+      warning("samples argument is ignored when reading from bed")
+    }
     if(!missing(position) & position != 'all') {
       variants <- import.bed(file, which = position, genome = genome)
     } else {
@@ -47,22 +56,21 @@ GetVariantsInWindow <- function(file, position, genome = "hg19", type = "vcf") {
   }
 }
 
-#' Set Population in VCF
-#' @description Add population specific data to your VCF
-#' @param vcf An object of class VCF
+#' Add Sample Data to VCF
+#' @description Add population specific, and other sample oriented data to your
+#'   VCF
 #'
+#' @param vcf An object of class VCF
 #' @param sample_sheet a data.frame with columns describing the sample and
-#'   population that you may wish to filter on
+#'   population that you may wish to filter on; there must be a column labeled
+#'   Sample
 #' @return returns the vcf that was passed as an argument with it's colData()
 #'   modified to include the population data
 #' @importFrom S4Vectors merge
 #' @importFrom SummarizedExperiment colData colData<- rowData rowData<-
 #' @export
-SetPopulation <- function(vcf, sample_sheet) {
+AddSampleData <- function(vcf, sample_sheet) {
   population <- colData(vcf)
-  if (!("Samples" %in% colnames(population))) {
-    stop("vcf does not contain sample information")
-  }
   population$Samples <- rownames(population)
   sample.col <- which(grepl(pattern = "sample",
                             x = colnames(sample_sheet),
@@ -73,8 +81,6 @@ SetPopulation <- function(vcf, sample_sheet) {
     population <- S4Vectors::merge(population, sample_sheet, all.x = TRUE, all.y = FALSE, by = "Samples")
     rownames(population) <- population$Samples
     colData(vcf) <- population
-    metadata(vcf)$source <- "funciVar"
-    metadata(vcf)$ld <- "none"
     return(vcf)
   } else {
     stop("sample sheet does not contain sample column")
@@ -95,9 +101,6 @@ SetPopulation <- function(vcf, sample_sheet) {
 #'   valid SNPs from the vcf only, 'all' attempts to return all variants,
 #'   including indels. In the case of 'all', still, only SNPs are used for
 #'   calculating LD.
-#' @param force Logical indicating that even though LD has already been
-#'   calculated upon this VCF, you wish to overwrite that information with the
-#'   LD calculation of a new index.
 #' @return returns the vcf that was passed as an argument with it's rowRanges()
 #'   modified to include the information relative to the index. Including ref,
 #'   and alt alleles, allele frequencies (in the population queried), distance
@@ -108,7 +111,7 @@ SetPopulation <- function(vcf, sample_sheet) {
 #' @importFrom BiocGenerics start end
 #' @import methods
 #' @export
-CalcLD <- function(vcf, index, population, return = "valid", force = TRUE) {
+CalculateLD <- function(vcf, index, population, return = "valid") {
   ## check input
   if(!is(vcf, "VCF")) {
     stop("vcf object must be of the class VCF")
@@ -121,71 +124,68 @@ CalcLD <- function(vcf, index, population, return = "valid", force = TRUE) {
     stop("index snp ", index, " not found in current vcf")
   }
   if(missing(population)) {
-    population <- "ALL"
     vcf.snv <- isSNV(vcf)
-    if (return == "valid") {
-      if (any(!vcf.snv)) {
-        vcf <- vcf[vcf.snv, ]
-        warning("CalcLD only operates on SNVs some of your variants were dropped at this step, set return = 'all', to override this behaviour")
-      }
-      vcf <- vcf[isSNV(vcf, singleAltOnly = TRUE), ]
-    }
   } else {
     samples <- as.data.frame(colData(vcf))
     samples.col <- which(samples == population, arr.ind = TRUE)
     if (nrow(samples.col) > 0L) {
-      ## metadata
       samples.col <- samples.col[1, "col"]
       pop.samples <- rownames(samples)[grepl(population, samples[, samples.col])]
       vcf <- vcf[, pop.samples]
       vcf.snv <- isSNV(vcf)
-      if (return == "valid") {
-        if (any(!vcf.snv)) {
-          vcf <- vcf[vcf.snv, ]
-          warning("CalcLD only operates on SNVs some of your variants were dropped at this step, set return = 'all', to override this behaviour")
-        }
-        vcf <- vcf[isSNV(vcf, singleAltOnly = TRUE), ]
-      }
     } else {
-      stop("your population was not found in your vcf.\nUse setPopulation() to add your sample descriptions, and double check that ",
+      stop("your population was not found in your vcf.\nUse AddSampleData() to add your sample descriptions, and double check that ",
            population, " is present")
     }
   }
   if(nrow(vcf) >= 1L) {
     vcf.ranges <- rowRanges(vcf)[, c("REF", "ALT")]
-    mcols(vcf.ranges) <- c(mcols(vcf.ranges), snpSummary(vcf)[, c("a0Freq", "a1Freq", "HWEpvalue")])
-    colnames(mcols(vcf.ranges)) <- c("ref", "alt", "refAlleleFreq", "altAlleleFreq", "HWEpvalue")
-    mcols(vcf.ranges)[, "indexSNP"] <- index
-    mcols(vcf.ranges)[, "population"] <- population
-    mcols(vcf.ranges)[, "distanceToIndex"] <- abs(start(vcf.ranges[index, ]) - start(vcf.ranges))
-    ## genotype
-    vcf.geno <- genotypeToSnpMatrix(vcf)$genotypes
+    vcf.meta <- snpSummary(vcf[vcf.snv])[, c("a0Freq", "a1Freq", "HWEpvalue")]
+    colnames(vcf.meta) <- c("refAlleleFreq", "altAlleleFreq", "HWEpvalue")
+    mcols(vcf.ranges)$refAlleleFreq <- numeric(length(vcf.ranges))
+    mcols(vcf.ranges)$altAlleleFreq <- numeric(length(vcf.ranges))
+    mcols(vcf.ranges)$HWEpvalue <- numeric(length(vcf.ranges))
+    mcols(vcf.ranges)[vcf.snv, c("refAlleleFreq", "altAlleleFreq", "HWEpvalue")] <- DataFrame(vcf.meta)
+    mcols(vcf.ranges)$indexSNP <- index
+    mcols(vcf.ranges)$population <- population
+    mcols(vcf.ranges)$distanceToIndex <- abs(start(vcf.ranges[index, ]) - start(vcf.ranges))
+    mcols(vcf.ranges)$D.prime <- NA
+    mcols(vcf.ranges)$R.squared <- NA
+    vcf.geno <- suppressWarnings(genotypeToSnpMatrix(vcf)$genotypes)
     vcf.ld <- ld(vcf.geno, vcf.geno[, index], stats = c('D.prime', 'R.squared'))
     mcols(vcf.ranges)$D.prime <- vcf.ld$D.prime[, 1]
     mcols(vcf.ranges)$R.squared <- vcf.ld$R.squared[, 1]
     rowRanges(vcf) <- vcf.ranges
-    ## xXx rowData(vcf) <- cbind(rowData(vcf), mcols(vcf.ranges))
-    if ("none" %in% metadata(vcf)$ld) {
-      metadata(vcf)$ld <- index
-    } else if(force) {
-      metadata(vcf)$ld <- index
-    } else if(!("ld" %in% names(metadata(vcf)))) {
-      metadata(vcf)$source <- "funciVar"
-      metadata(vcf)$ld <- index
+    if(is(vcf, "overlapVCF")) {
+      if(length(vcf@index.snp) > 1L) {
+        warning("LD has already been calculated in this vcf for population: ", vcf@population,
+                "against index.snp: ", vcf@index.snp, "this has been overwritten")
+      }
+      vcf <- new("overlapVariants", vcf,
+                 genotype = geno(vcf),
+                 index.snp = index,
+                 overlap.names = vcf@overlap.names)
     } else {
-      stop("ld has already been calculated on this object for index snp: ", index)
+      vcf <- new("overlapVariants", vcf,
+                 genotype = geno(vcf),
+                 index.snp = index,
+                 overlap.names = character())
     }
+    return(vcf)
+  } else {
+    stop("no variants availible in this vcf")
   }
-  return(vcf)
 }
 
 #' Import Biofeatures
-#' @description Imports a set of biofeatures in the form of BED files or derivitive formats
-#' for the purpose of annotating variants
+#' @description Imports a set of biofeatures in the form of BED files or
+#'   derivitive formats for the purpose of annotating variants
 #' @param files A character vector containing a list of files to
 #'
 #' @param genome A character vector describing the genome build against which
 #'   the biofeatures were created, e.g. "hg19", "b37", "hg38", "mm10".
+#' @param fast Logical, use faster, but less safe coded for importing bed files,
+#'   useful if using many bed files with many lines each.
 #'
 #' @return A GRangesList containing the biofeatures imported.
 #'
@@ -283,7 +283,7 @@ GetSegmentations <- function(files) {
     bed.name <- tryCatch(bed@trackLine@name, error = NA)
   })
   bed.names[is.na(bed.names)] <- files[is.na(bed.names)]
-  bed.list <- Map(format.bed, bed.list, bed.names)
+  bed.list <- Map(format.segment, bed.list, bed.names)
   if (is.null(bed.list)) {
     return(GRangesList())
   } else {
@@ -293,56 +293,36 @@ GetSegmentations <- function(files) {
   }
 }
 
-format.bed <- function(bed, name) {
-  bed.m <- mcols(bed)
-  mcols(bed) <- NULL
-  mcols(bed)$sample <- name
-  mcols(bed)$state <- bed.m$name
-  return(bed)
-}
-
-#' Split VCF by Linkage Disequilibrium
-#' @description Splits a VCF file into foreground and background variant sets based upon a
-#' Linkage Disequilibrium cutoff
+#' Set Foreground and Background Variants for Enrichment
+#' @description Assigns foreground and background designations to variants.
 #'
-#' @param vcf an object of class VCF, particularly one that has been processed
-#'   by CalcLD()
+#' @param variants an object of class overlapsVCF or overlapsGRanges
 #'
-#' @param ld a vector containing three fields. These include: \itemize{ \item
-#'   metric, either 'R.squared' or 'D.prime' \item cutoff, numeric between 0 and
-#'   1, the value of the metric upon which to perform the cutoff \item maf,
-#'   numeric between 0 and 1, the minor allele frequency considered to be
-#'   included in both foreground and background }
+#' @param enrichmentParams an object of class ldEnrichmentParams or a vector of
+#'   logicals equal to the length of variants. In the case of the vector of
+#'   logicals; TRUE assigns foreground, FALSE assigns background, and NA drops
+#'   the element. Objects of class ldEnrichmentParams are valid for overlapsVCF
+#'   objects for filtering into foreground or background based upon LD.
 #'
-#' @param strict.subset boolean indicating if one wishes the foreground  to be a
-#'   strict subset of the background, or an independant set.
-#' @return a list of length 2 containing in the 'fg' slot the VCF object of the
-#'   foreground SNPs, and the bg slot containing the VCF object of the
-#'   background SNPs
+#' @return the variants object passed to the function, annotated into foreground
+#'   / not foreground sets
 #' @export
-SplitVcfLd <- function(vcf, ld = c(metric = "R.squared", cutoff = 0.8, maf = 0.01), strict.subset = TRUE) {
-  if (!is(vcf, "VCF")) {
-    stop("parameter vcf must be a VCF object")
+AssignForeground <- function(variants, enrichmentParams) {
+  if(is(enrichmentParams, "ldEnrichmentParams")) {
+    if(!is(variants, "overlapsVCF")) {
+      stop("variants object must be of the class 'overlapsVCF'",
+           "if enrichmentParams is of the class 'ldEnrichmentParams'")
+    } else {
+      filter.ranges <- mcols(rowRanges(vcf))
+      filter.alt <- filter.ranges[, "altAlleleFreq"] >= enrichmentParams@min_maf
+      filter.ref <- filter.ranges[, "refAlleleFreq"] >= enrichmentParams@min_maf
+      all.filter <- filter.alt | filter.ref
+      fg.filter <- all.filter & filter.ranges[, enrichmentParams@metric] >= enrichmentParams@cutoff
+    }
+  } else if(length(enrichmentParams) == length(variants) & is.logical(enrichmentParams)) {
+
   }
-  if (!all(names(ld) %in% c("metric", "cutoff", "maf"))) {
-    stop("parameter ld must contain the fields 'metric', 'cutoff', and 'maf'")
-  }
-  if (!(ld[["metric"]] %in% colnames(mcols(rowRanges(vcf))))) {
-    stop("in argument ld$metric: '", ld[['metric']],"' must be present in rowRanges(vcf)")
-  }
-  if (!(ld[["maf"]] >= 0 && ld[["maf"]] <= 1)) {
-    stop("in argument ld$maf: '", ld[['maf']], "' must be between the values of 0 and 1")
-  }
-  filter <- mcols(rowRanges(vcf))[, "altAlleleFreq"] >= ld[["maf"]]
-  fg.filter <- filter & mcols(rowRanges(vcf))[, ld[["metric"]]] >= ld[["cutoff"]]
-  if (strict.subset) {
-    bg.filter <- fg.filter | mcols(rowRanges(vcf))[, ld[["metric"]]] < ld[["cutoff"]]
-  } else {
-    bg.filter <- filter & !mcols(rowRanges(vcf))[, ld[["metric"]]] >= ld[["cutoff"]]
-  }
-  metadata(vcf)$strict.subset <- strict.subset
-  bg.filter <- fg.filter | mcols(rowRanges(vcf))[, ld[["metric"]]] < ld[["cutoff"]]
-  return(list(fg = vcf[fg.filter & !is.na(fg.filter), ], bg = vcf[bg.filter & !is.na(bg.filter), ]))
+
 }
 
 
@@ -826,7 +806,6 @@ enrich.segments <- function(fg, bg, features, CI, prior, strict.subset, return.o
   }
 }
 
-
 enrich.features <- function(fg, bg, CI, prior, strict.subset) {
   ## foreground overlaps
   fg.over.matrix <- as.matrix(mcols(ShowOverlaps(fg)))
@@ -909,4 +888,12 @@ enrich.features <- function(fg, bg, CI, prior, strict.subset) {
   enrichment$significant <- FALSE
   enrichment[enrichment$probability > (1 - CI) | enrichment$probability < CI, "significant"] <- TRUE
   return(enrichment)
+}
+
+format.segment <- function(bed, name) {
+  bed.m <- mcols(bed)
+  mcols(bed) <- NULL
+  mcols(bed)$sample <- name
+  mcols(bed)$state <- bed.m$name
+  return(bed)
 }

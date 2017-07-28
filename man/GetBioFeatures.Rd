@@ -11,11 +11,14 @@ GetBioFeatures(files, genome)
 
 \item{genome}{A character vector describing the genome build against which
 the biofeatures were created, e.g. "hg19", "b37", "hg38", "mm10".}
+
+\item{fast}{Logical, use faster, but less safe coded for importing bed files,
+useful if using many bed files with many lines each.}
 }
 \value{
 A GRangesList containing the biofeatures imported.
 }
 \description{
-Imports a set of biofeatures in the form of BED files or derivitive formats
-for the purpose of annotating variants
+Imports a set of biofeatures in the form of BED files or
+  derivitive formats for the purpose of annotating variants
 }
