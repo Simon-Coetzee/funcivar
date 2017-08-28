@@ -640,14 +640,14 @@ PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NU
       color.vals <- as.factor(color.vals)
       if(nlevels(color.vals) < 10L) {
         levels(color.vals) <- brewer.pal(nlevels(color.vals), "Set1")
-      } else if(nlevels(color.vals) < 23L) {
+      } else if(nlevels(color.vals) < 20L) {
         kelly.colours <- c("gray95", "gray13", "gold2", "plum4",
                            "darkorange1", "lightskyblue2", "firebrick",
                            "burlywood3", "gray51", "springgreen4", "lightpink2",
                            "deepskyblue4", "lightsalmon2", "mediumpurple4",
                            "orange", "maroon", "yellow3", "brown4",
                            "yellow4", "sienna4", "chocolate", "gray19")
-        levels(color.vals) <- kelly.colours[1:nlevels(color.vals)]
+        levels(color.vals) <- kelly.colours[3:nlevels(color.vals)]
       } else {
         levels(color.vals) <- colorRampPalette(brewer.pal(9, "Spectral"))(nlevels(color.vals))
       }
