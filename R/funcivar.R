@@ -1,4 +1,3 @@
-#' Import Variants
 #' @description Import variants from VCF or BED files, optionally restricted to a specific window.
 #' @param file A character vector describing a file to read
 #'
@@ -378,6 +377,7 @@ SplitVcfLd <- function(vcf, ld = c(metric = "R.squared", cutoff = 0.8, maf = 0.0
 #' @importFrom stats fisher.test formula as.formula quantile rbeta
 #' @importFrom GenomicRanges gaps
 #' @importMethodsFrom GenomicRanges range
+#' @importMethodsFrom IRanges subsetByOverlaps
 #' @export
 CalculateEnrichment <- function(variants, features, feature.type = "biofeatures",
                             CI = 0.95, prior = c(a = 0.5, b = 0.5),
@@ -452,7 +452,7 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
       } else {
         search.range <- GenomicRanges::union(range(rowRanges(variants$fg)), range(rowRanges(variants$bg)))
       }
-      if(is(features, "GRangesList")) {
+      if (is(features, "GRangesList")) {
         features <- unlist(features, use.names = FALSE)
       }
       # nfeatures <- gaps(features)
@@ -495,6 +495,9 @@ SetOverlaps <- function(variants, features) {
   mcols(nfeatures)$sample <- "none"
   mcols(nfeatures)$state <- "unclassified"
   features <- c(features, nfeatures)
+  if (is.null(names(variants))) {
+    names(variants) <- as.character(variants)
+  }
   overlaps <- findOverlaps(variants, features, ignore.strand = TRUE)
   overlaps <- data.frame(from = names(variants)[from(overlaps)],
                          to = mcols(features)[to(overlaps), "sample"],
@@ -506,7 +509,7 @@ SetOverlaps <- function(variants, features) {
     if(is(variants, "GRanges")) {
       overlap.offset <- ncol(mcols(variants)) + 1
       mcols(variants) <- cbind(mcols(variants), DataFrame(resmatrix))
-      attributes(my.pos)$metadata$overlap.offset <- overlap.offset
+      attributes(variants)$metadata$overlap.offset <- overlap.offset
     } else if (is(variants, "VCF")) {
       overlap.offset <- ncol(mcols(rowRanges(variants))) + 1
       mcols(rowRanges(variants)) <- cbind(mcols(rowRanges(variants)), DataFrame(resmatrix))
@@ -644,7 +647,7 @@ PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NU
                            "deepskyblue4", "lightsalmon2", "mediumpurple4",
                            "orange", "maroon", "yellow3", "brown4",
                            "yellow4", "sienna4", "chocolate", "gray19")
-        levels(color.vals) <- kelly.colours[nlevels(color.vals)]
+        levels(color.vals) <- kelly.colours[1:nlevels(color.vals)]
       } else {
         levels(color.vals) <- colorRampPalette(brewer.pal(9, "Spectral"))(nlevels(color.vals))
       }
@@ -801,21 +804,39 @@ enrich.segments <- function(fg, bg, features, CI, prior, strict.subset, return.o
       bg.features <- colnames(mcols(ShowOverlaps(local.bg)))
       all.features <- union(fg.features, bg.features)
       ## first fg
-      if(any(!(is.element(all.features, fg.features)))) {
-        mcols(rowRanges(local.fg))[, all.features[!(is.element(all.features, fg.features))]] <- 0L
+      if (is(local.fg, "VCF")) {
+        if(any(!(is.element(all.features, fg.features)))) {
+          mcols(rowRanges(local.fg))[, all.features[!(is.element(all.features, fg.features))]] <- 0L
+        }
+        mcols(rowRanges(local.fg)) <- cbind(mcols(rowRanges(local.fg))[, 1:metadata(local.fg)$overlap.offset - 1],
+                                            mcols(rowRanges(local.fg))[, all.features, drop = FALSE])
+      } else if (is(local.fg, "GRanges")) {
+        if (any(!(is.element(all.features, fg.features)))) {
+          mcols(local.fg)[, all.features[!(is.element(all.features, fg.features))]] <- 0L
+        }
+        mcols(local.fg) <- cbind(mcols(local.fg)[, 1:attributes(local.fg)$metadata$overlap.offset - 1],
+                                 mcols(local.fg)[, all.features, drop = FALSE])
       }
-      mcols(rowRanges(local.fg)) <- cbind(mcols(rowRanges(local.fg))[, 1:metadata(local.fg)$overlap.offset-1], mcols(rowRanges(local.fg))[, all.features, drop = FALSE])
       ## then bg
-      if(any(!(is.element(all.features, bg.features)))) {
-        mcols(rowRanges(local.bg))[, all.features[!(is.element(all.features, bg.features))]] <- 0L
+      if (is(local.bg, "VCF")) {
+        if(any(!(is.element(all.features, bg.features)))) {
+          mcols(rowRanges(local.bg))[, all.features[!(is.element(all.features, bg.features))]] <- 0L
+        }
+        mcols(rowRanges(local.bg)) <- cbind(mcols(rowRanges(local.bg))[, 1:metadata(local.bg)$overlap.offset - 1],
+                                            mcols(rowRanges(local.bg))[, all.features, drop = FALSE])
+      } else if (is(local.bg, "GRanges")) {
+        if (any(!(is.element(all.features, bg.features)))) {
+          mcols(local.bg)[, all.features[!(is.element(all.features, bg.features))]] <- 0L
+        }
+        mcols(local.bg) <- cbind(mcols(local.bg)[, 1:attributes(local.bg)$metadata$overlap.offset - 1],
+                                 mcols(local.bg)[, all.features, drop = FALSE])
       }
-      mcols(rowRanges(local.bg)) <- cbind(mcols(rowRanges(local.bg))[, 1:metadata(local.bg)$overlap.offset-1], mcols(rowRanges(local.bg))[, all.features, drop = FALSE])
       enrich <- enrich.features(fg = local.fg,
                                 bg = local.bg,
                                 CI = local.CI,
                                 prior = local.prior,
                                 strict.subset = local.strict.subset)
-      if(local.return.overlaps) {
+      if (local.return.overlaps) {
         return(list(e = enrich, fg.o = ShowOverlaps(local.fg), bg.o = ShowOverlaps(local.bg)))
       } else {
         return(enrich)
