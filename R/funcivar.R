@@ -407,15 +407,31 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
       bg.features <- colnames(mcols(ShowOverlaps(variants$bg)))
       all.features <- union(fg.features, bg.features)
       ## first fg
-      if(any(!(is.element(all.features, fg.features)))) {
-        mcols(rowRanges(variants$fg))[, all.features[!(is.element(all.features, fg.features))]] <- 0L
+      if (any(!(is.element(all.features, fg.features)))) {
+        if (is(variants$fg, "VCF")) {
+          mcols(rowRanges(variants$fg))[, all.features[!(is.element(all.features, fg.features))]] <- 0L
+        } else if (is(variants$fg, "GRanges")) {
+          mcols(variants$fg)[, all.features[!(is.element(all.features, fg.features))]] <- 0L
+        }
       }
-      mcols(rowRanges(variants$fg)) <- cbind(mcols(rowRanges(variants$fg))[, 1:metadata(variants$fg)$overlap.offset-1], mcols(rowRanges(variants$fg))[, all.features])
+      if (is(variants$bg, "VCF")) {
+        mcols(rowRanges(variants$fg)) <- cbind(mcols(rowRanges(variants$fg))[, 1:metadata(variants$fg)$overlap.offset-1], mcols(rowRanges(variants$fg))[, all.features])
+      } else if (is(variants$fg, "GRanges")) {
+        mcols(variants$fg) <- cbind(mcols(variants$fg)[, 1:attributes(variants$fg)$metadata$overlap.offset-1], mcols(variants$fg)[, all.features])
+      }
       ## then bg
-      if(any(!(is.element(all.features, bg.features)))) {
-        mcols(rowRanges(variants$bg))[, all.features[!(is.element(all.features, bg.features))]] <- 0L
+      if (any(!(is.element(all.features, bg.features)))) {
+        if (is(variants$bg, "VCF")) {
+          mcols(rowRanges(variants$bg))[, all.features[!(is.element(all.features, bg.features))]] <- 0L
+        } else if (is(variants$bg, "GRanges")) {
+          mcols(variants$bg)[, all.features[!(is.element(all.features, bg.features))]] <- 0L
+        }
       }
-      mcols(rowRanges(variants$bg)) <- cbind(mcols(rowRanges(variants$bg))[, 1:metadata(variants$bg)$overlap.offset-1], mcols(rowRanges(variants$bg))[, all.features])
+      if (is(variants$bg, "VCF")) {
+        mcols(rowRanges(variants$bg)) <- cbind(mcols(rowRanges(variants$bg))[, 1:metadata(variants$bg)$overlap.offset-1], mcols(rowRanges(variants$bg))[, all.features])
+      } else if (is(variants$bg, "GRanges")) {
+        mcols(variants$bg) <- cbind(mcols(variants$bg)[, 1:attributes(variants$bg)$metadata$overlap.offset-1], mcols(variants$bg)[, all.features])
+      }
     }
   }
   # feature.type = "biofeatures"
