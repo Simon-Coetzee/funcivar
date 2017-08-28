@@ -447,7 +447,11 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
     if (missing(features)) {
       stop("include segmentations as the 'features' argument")
     } else {
-      search.range <- GenomicRanges::union(range(rowRanges(variants$fg)), range(rowRanges(variants$bg)))
+      if (is(variants$fg, "GRanges") & is(variants$bg, "GRanges")) {
+        search.range <- GenomicRanges::union(range(variants$fg), range(variants$bg))
+      } else {
+        search.range <- GenomicRanges::union(range(rowRanges(variants$fg)), range(rowRanges(variants$bg)))
+      }
       if(is(features, "GRangesList")) {
         features <- unlist(features, use.names = FALSE)
       }
