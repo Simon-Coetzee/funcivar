@@ -647,7 +647,7 @@ PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NU
                            "deepskyblue4", "lightsalmon2", "mediumpurple4",
                            "orange", "maroon", "yellow3", "brown4",
                            "yellow4", "sienna4", "chocolate", "gray19")
-        levels(color.vals) <- kelly.colours[3:nlevels(color.vals)+2]
+        levels(color.vals) <- kelly.colours[3:(nlevels(color.vals)+2)]
       } else {
         levels(color.vals) <- colorRampPalette(brewer.pal(9, "Spectral"))(nlevels(color.vals))
       }
