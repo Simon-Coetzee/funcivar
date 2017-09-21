@@ -615,7 +615,7 @@ PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NU
     stop("The y argument must be either 'log.odds.ratio' or 'difference'")
   }
   if(value == "log.odds.ratio") value.name <- "log1p(odds ratio)"
-  if(value == "difference") value.name <- "difference of foreground \nadbackground distributions"
+  if(value == "difference") value.name <- "difference of foreground \nand background distributions"
   if (is.null(color.by)) {
     variant.enrichment$color <- "#ececec"
     variant.enrichment[variant.enrichment$significant, "color"] <- "#ff0000"
