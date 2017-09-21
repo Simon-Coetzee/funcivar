@@ -273,11 +273,12 @@ GetBioFeatures <- function(files, genome) {
 #'
 #' @return A GRangesList containing the segmentations imported.
 #' @importFrom rtracklayer import.bed
+#' @importFrom plyr alply
 #' @export
 GetSegmentations <- function(files) {
-  bed.list <- sapply(files, function(file) {
+  bed.list <- alply(files,.margins = 1, function(file) {
     bed <- import.bed(file)
-  })
+  }, .progress = "text")
   bed.names <- sapply(bed.list, function(bed) {
     bed.name <- tryCatch(bed@trackLine@name, error = NA)
   })
