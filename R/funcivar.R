@@ -415,9 +415,9 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
         }
       }
       if (is(variants$bg, "VCF")) {
-        mcols(rowRanges(variants$fg)) <- cbind(mcols(rowRanges(variants$fg))[, 1:metadata(variants$fg)$overlap.offset-1], mcols(rowRanges(variants$fg))[, all.features])
+        mcols(rowRanges(variants$fg)) <- cbind(mcols(rowRanges(variants$fg))[, 1:metadata(variants$fg)$overlap.offset-1], mcols(rowRanges(variants$fg))[, all.features, drop = FALSE])
       } else if (is(variants$fg, "GRanges")) {
-        mcols(variants$fg) <- cbind(mcols(variants$fg)[, 1:attributes(variants$fg)$metadata$overlap.offset-1], mcols(variants$fg)[, all.features])
+        mcols(variants$fg) <- cbind(mcols(variants$fg)[, 1:attributes(variants$fg)$metadata$overlap.offset-1], mcols(variants$fg)[, all.features, drop = FALSE])
       }
       ## then bg
       if (any(!(is.element(all.features, bg.features)))) {
@@ -428,9 +428,9 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
         }
       }
       if (is(variants$bg, "VCF")) {
-        mcols(rowRanges(variants$bg)) <- cbind(mcols(rowRanges(variants$bg))[, 1:metadata(variants$bg)$overlap.offset-1], mcols(rowRanges(variants$bg))[, all.features])
+        mcols(rowRanges(variants$bg)) <- cbind(mcols(rowRanges(variants$bg))[, 1:metadata(variants$bg)$overlap.offset-1], mcols(rowRanges(variants$bg))[, all.features, drop = FALSE])
       } else if (is(variants$bg, "GRanges")) {
-        mcols(variants$bg) <- cbind(mcols(variants$bg)[, 1:attributes(variants$bg)$metadata$overlap.offset-1], mcols(variants$bg)[, all.features])
+        mcols(variants$bg) <- cbind(mcols(variants$bg)[, 1:attributes(variants$bg)$metadata$overlap.offset-1], mcols(variants$bg)[, all.features, drop = FALSE])
       }
     }
   }
