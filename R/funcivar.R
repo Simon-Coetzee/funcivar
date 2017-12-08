@@ -104,7 +104,7 @@ SetPopulation <- function(vcf, sample_sheet) {
 #' @importFrom VariantAnnotation snpSummary isSNV genotypeToSnpMatrix
 #' @importFrom SummarizedExperiment rowRanges rowRanges<-
 #' @importFrom snpStats ld
-#' @importFrom BiocGenerics start end
+#' @importFrom BiocGenerics start end strand
 #' @import methods
 #' @export
 CalcLD <- function(vcf, index, population, return = "valid", force = TRUE) {
@@ -401,6 +401,7 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
   # features
   if (!missing(features)) {
     if (feature.type == "biofeatures") {
+      if(inherits(features, "GRangesList")) features <- unlist(features, use.names = FALSE)
       variants$fg <- SetOverlaps(variants$fg, features)
       variants$bg <- SetOverlaps(variants$bg, features)
       fg.features <- colnames(mcols(ShowOverlaps(variants$fg)))
@@ -492,15 +493,22 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
 SetOverlaps <- function(variants, features) {
   nfeatures <- gaps(features)
   nfeatures <- nfeatures[strand(nfeatures) == "*"]
-  mcols(nfeatures)$sample <- "none"
-  mcols(nfeatures)$state <- "unclassified"
+  if(all(names(mcols(features)) == c("sample", "state"))) {
+    mcols(nfeatures)$sample <- "none"
+    mcols(nfeatures)$state <- "unclassified"
+    id.name <- "sample"
+  } else if (all(names(mcols(features)) == c("feature", "signalValue"))) {
+    mcols(nfeatures)$feature <- "none"
+    mcols(nfeatures)$signalValue <- 0L
+    id.name <- "feature"
+  }
   features <- c(features, nfeatures)
   if (is.null(names(variants))) {
-    names(variants) <- as.character(variants)
+    names(variants) <- make.unique(as.character(variants))
   }
   overlaps <- findOverlaps(variants, features, ignore.strand = TRUE)
   overlaps <- data.frame(from = names(variants)[from(overlaps)],
-                         to = mcols(features)[to(overlaps), "sample"],
+                         to = mcols(features)[to(overlaps), id.name],
                          stringsAsFactors = FALSE)
   resmatrix <- make.overlap.matrix(overlaps)
   resmatrix <- resmatrix[names(variants), !grepl("^none$",
@@ -728,6 +736,8 @@ PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NU
 ###############
 ### Helpers ###
 ###############
+
+
 
 #' @importFrom GenomeInfoDb seqlevelsStyle keepSeqlevels seqlevelsInUse
 #' @importFrom VariantAnnotation readVcf
