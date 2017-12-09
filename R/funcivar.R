@@ -439,7 +439,16 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
   if (feature.type == "biofeatures") {
     enrichment <- enrich.features(fg = variants$fg, bg = variants$bg, CI = CI, prior = prior, strict.subset = strict.subset)
     if(return.overlaps) {
-      overlaps <- GRangesList(foregound.overlaps = rowRanges(variants$fg), background.overlaps = rowRanges(variants$bg))
+      if(all(names(mcols(variants$fg)) == names(mcols(variants$bg)))) {
+        list.fun <- GenomicRanges::GRangesList
+      } else {
+        list.fun <- S4Vectors::List
+      }
+      if (is(variants$fg, "GRanges") & is(variants$bg, "GRanges")) {
+        overlaps <- list.fun(foregound.overlaps = variants$fg, background.overlaps = variants$bg)
+      } else {
+        overlaps <- list.fun(foregound.overlaps = rowRanges(variants$fg), background.overlaps = rowRanges(variants$bg))
+      }
       return(list(overlaps = overlaps, enrichment = enrichment))
     } else {
       return(enrichment)
@@ -486,7 +495,7 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
 #' @return returns the variants object that was passed as an argument, VCF
 #'   objects have overlaps stored in rowRanges(), GRanges have overlaps stored
 #'   in mcols(), ShowOverlaps() can be used to reveal this data.
-#' @importFrom S4Vectors to from
+#' @importFrom S4Vectors to from List
 #' @importFrom GenomicRanges findOverlaps
 #' @importFrom dplyr left_join
 #' @export

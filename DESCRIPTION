@@ -2,7 +2,7 @@ Package: funciVar
 Type: Package
 Title: Calculate overlaps and enrichment between genomic 
   variants and genomic features or segmentations
-Version: 0.1.3
+Version: 0.1.4
 Author: Simon Coetzee
 Maintainer: Simon Coetzee <simon.coetzee@cshs.org>
 Description: Calculate overlaps and enrichment between 
