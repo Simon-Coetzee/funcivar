@@ -349,7 +349,7 @@ SplitVcfLd <- function(vcf, ld = c(metric = "R.squared", cutoff = 0.8, maf = 0.0
 #' @description Calculates the enrichment of foreground variants vs background
 #'   variants against a list of biofeatures.
 #' @param variants a list of two GRanges or VCF objects representing the
-#'   foregound and background variants to be compared. In the format list(fg =
+#'   foreground and background variants to be compared. In the format list(fg =
 #'   object, bg = object).
 #'
 #' @param features A GRangesList of biofeatures or segmentations to calculate
@@ -446,9 +446,9 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
         list.fun <- S4Vectors::List
       }
       if (is(variants$fg, "GRanges") & is(variants$bg, "GRanges")) {
-        overlaps <- list.fun(foregound.overlaps = variants$fg, background.overlaps = variants$bg)
+        overlaps <- list.fun(foreground.overlaps = variants$fg, background.overlaps = variants$bg)
       } else {
-        overlaps <- list.fun(foregound.overlaps = rowRanges(variants$fg), background.overlaps = rowRanges(variants$bg))
+        overlaps <- list.fun(foreground.overlaps = rowRanges(variants$fg), background.overlaps = rowRanges(variants$bg))
       }
       return(list(overlaps = overlaps, enrichment = enrichment))
     } else {
@@ -864,7 +864,7 @@ enrich.segments <- function(fg, bg, features, CI, prior, strict.subset, return.o
     })
     if(return.overlaps) {
       overlaps <- lapply(enrichment, function(x) {
-        overlaps <- GRangesList(foregound.overlaps = x$fg.o, background.overlaps = x$bg.o)
+        overlaps <- GRangesList(foreground.overlaps = x$fg.o, background.overlaps = x$bg.o)
         return(overlaps)
       })
       names(overlaps) <- states
