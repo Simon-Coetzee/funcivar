@@ -399,6 +399,7 @@ CalculateEnrichment <- function(variants, features, feature.type = "biofeatures"
     stop("strict.subset must be one of 'guess', TRUE, or FALSE")
   }
   # features
+  if(!is(variants, "list")) stop("variants must be an object of class list")
   if (!missing(features)) {
     if (feature.type == "biofeatures") {
       if(inherits(features, "GRangesList")) features <- unlist(features, use.names = FALSE)
