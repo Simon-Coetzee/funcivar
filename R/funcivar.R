@@ -535,7 +535,13 @@ SetOverlaps <- function(variants, features) {
       stop("variants must be either a GRanges or VCF object, your object is: ", class(variants))
     }
   } else {
-    metadata(variants)$overlap.offset <- ncol(mcols(rowRanges(variants))) + 1
+    if(is(variants, "GRanges")) {
+      metadata(variants)$overlap.offset <- ncol(mcols(variants)) + 1
+    } else if (is(variants, "VCF")) {
+      metadata(variants)$overlap.offset <- ncol(mcols(rowRanges(variants))) + 1
+    } else {
+      stop("variants must be either a GRanges or VCF object, your object is: ", class(variants))
+    }
     warning("No overlaps were found for this variant/feature combination")
   }
   return(variants)
