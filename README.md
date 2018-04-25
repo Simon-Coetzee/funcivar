@@ -1,4 +1,7 @@
 # funcivar
+
+[![DOI](https://zenodo.org/badge/88302964.svg)](https://zenodo.org/badge/latestdoi/88302964)
+
 example
 ```{r}
 ## prepare variants
