@@ -529,7 +529,7 @@ SetOverlaps <- function(variants, features) {
       mcols(variants) <- cbind(mcols(variants), DataFrame(resmatrix))
       attributes(variants)$metadata$overlap.offset <- overlap.offset
     } else if (is(variants, "VCF")) {
-      overlap.offset <- ncol(mcols(rowRanges(variants))) + 1
+      overlap.offset <- (ncol(mcols(rowRanges(variants))) + 1) - 4
       mcols(rowRanges(variants)) <- cbind(mcols(rowRanges(variants)), DataFrame(resmatrix))
       metadata(variants)$overlap.offset <- overlap.offset
     } else {
@@ -561,6 +561,7 @@ ShowOverlaps <- function(variants, feature = NULL) {
   } else if (is(variants, "VCF")) {
     offset <- metadata(variants)$overlap.offset
     variants <- rowRanges(variants)
+	variants <- variants[, 1:(ncol(mcols(variants)) - 4)]
   } else {
     stop("variants must be either a VCF or GRanges object")
   }
@@ -569,7 +570,7 @@ ShowOverlaps <- function(variants, feature = NULL) {
   }
   if (is.null(feature)) {
     if (!is.null(offset)) {
-      return(variants[, offset:ncol(mcols(variants))])
+	  return(variants[, offset:ncol(mcols(variants))])
     } else {
       stop("no overlap data is availible, run SetOverlaps() first")
     }
@@ -948,7 +949,7 @@ enrich.features <- function(fg, bg, CI, prior, strict.subset) {
 
     # OUTPUT
     quantiles <- try(quantile(diff,c(CI, 0.5, 1 - CI)))
-    if(inherits(quantiles, "try-error")) browser()
+    #if(inherits(quantiles, "try-error")) browser()
     fisher.res <- fisher.test(matrix(c(sample.success,
                                        total.success - sample.success,
                                        sample.size - sample.success,
