@@ -10,7 +10,7 @@ CalculateEnrichment(variants, features, feature.type = "biofeatures",
 }
 \arguments{
 \item{variants}{a list of two GRanges or VCF objects representing the
-foregound and background variants to be compared. In the format list(fg =
+foreground and background variants to be compared. In the format list(fg =
 object, bg = object).}
 
 \item{features}{A GRangesList of biofeatures or segmentations to calculate

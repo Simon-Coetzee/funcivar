@@ -4,17 +4,17 @@
 \alias{SplitVcfLd}
 \title{Split VCF by Linkage Disequilibrium}
 \usage{
-SplitVcfLd(vcf, ld = c(metric = "R.squared", cutoff = 0.8, maf = 0.01),
-  strict.subset = TRUE)
+SplitVcfLd(vcf, ld = list(metric = "R.squared", cutoff = 0.8, maf =
+  0.01), strict.subset = TRUE)
 }
 \arguments{
 \item{vcf}{an object of class VCF, particularly one that has been processed
 by CalcLD()}
 
-\item{ld}{a vector containing three fields. These include: \itemize{ \item
+\item{ld}{a list containing three fields. These include: \itemize{ \item
 metric, either 'R.squared' or 'D.prime' \item cutoff, numeric between 0 and
 1, the value of the metric upon which to perform the cutoff \item maf,
-numeric between 0 and 1, the minor allele frequency considered to be
+numeric between 0 and 0.5, the minor allele frequency considered to be
 included in both foreground and background }}
 
 \item{strict.subset}{boolean indicating if one wishes the foreground  to be a

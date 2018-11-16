@@ -1,3 +1,4 @@
+#' Get all variants in a specified genomic window
 #' @description Import variants from VCF or BED files, optionally restricted to a specific window.
 #' @param file A character vector describing a file to read
 #'
@@ -307,10 +308,10 @@ format.bed <- function(bed, name) {
 #' @param vcf an object of class VCF, particularly one that has been processed
 #'   by CalcLD()
 #'
-#' @param ld a vector containing three fields. These include: \itemize{ \item
+#' @param ld a list containing three fields. These include: \itemize{ \item
 #'   metric, either 'R.squared' or 'D.prime' \item cutoff, numeric between 0 and
 #'   1, the value of the metric upon which to perform the cutoff \item maf,
-#'   numeric between 0 and 1, the minor allele frequency considered to be
+#'   numeric between 0 and 0.5, the minor allele frequency considered to be
 #'   included in both foreground and background }
 #'
 #' @param strict.subset boolean indicating if one wishes the foreground  to be a
@@ -319,7 +320,7 @@ format.bed <- function(bed, name) {
 #'   foreground SNPs, and the bg slot containing the VCF object of the
 #'   background SNPs
 #' @export
-SplitVcfLd <- function(vcf, ld = c(metric = "R.squared", cutoff = 0.8, maf = 0.01), strict.subset = TRUE) {
+SplitVcfLd <- function(vcf, ld = list(metric = "R.squared", cutoff = 0.8, maf = 0.01), strict.subset = TRUE) {
   if (!is(vcf, "VCF")) {
     stop("parameter vcf must be a VCF object")
   }
@@ -329,10 +330,12 @@ SplitVcfLd <- function(vcf, ld = c(metric = "R.squared", cutoff = 0.8, maf = 0.0
   if (!(ld[["metric"]] %in% colnames(mcols(rowRanges(vcf))))) {
     stop("in argument ld$metric: '", ld[['metric']],"' must be present in rowRanges(vcf)")
   }
-  if (!(ld[["maf"]] >= 0 && ld[["maf"]] <= 1)) {
-    stop("in argument ld$maf: '", ld[['maf']], "' must be between the values of 0 and 1")
+  if (!(ld[["maf"]] >= 0 && ld[["maf"]] <= 0.5)) {
+    stop("in argument ld$maf: '", ld[['maf']], "' must be between the values of 0 and 0.5")
   }
+  orient <- mcols(rowRanges(vcf))[, "altAlleleFreq"] < mcols(rowRanges(vcf))[, "refAlleleFreq"]
   filter <- mcols(rowRanges(vcf))[, "altAlleleFreq"] >= ld[["maf"]]
+  filter[!orient] <- mcols(rowRanges(vcf))[, "refAlleleFreq"][!orient] >= ld[["maf"]]
   fg.filter <- filter & mcols(rowRanges(vcf))[, ld[["metric"]]] >= ld[["cutoff"]]
   if (strict.subset) {
     bg.filter <- fg.filter | mcols(rowRanges(vcf))[, ld[["metric"]]] < ld[["cutoff"]]
