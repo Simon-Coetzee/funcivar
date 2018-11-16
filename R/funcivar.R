@@ -157,6 +157,9 @@ CalcLD <- function(vcf, index, population, return = "valid", force = TRUE) {
     mcols(vcf.ranges)[, "indexSNP"] <- index
     mcols(vcf.ranges)[, "population"] <- population
     mcols(vcf.ranges)[, "distanceToIndex"] <- abs(start(vcf.ranges[index, ]) - start(vcf.ranges))
+    # adds new column to row ranges that is specifc for minor allele
+    mcols(vcf.ranges)[, "minor_allele_freq"] <- base::pmin(mcols(vcf.ranges)$altAlleleFreq, mcols(vcf.ranges)$refAlleleFreq)
+
     ## genotype
     vcf.geno <- genotypeToSnpMatrix(vcf)$genotypes
     vcf.ld <- ld(vcf.geno, vcf.geno[, index], stats = c('D.prime', 'R.squared'))
@@ -332,15 +335,17 @@ SplitVcfLd <- function(vcf, ld = c(metric = "R.squared", cutoff = 0.8, maf = 0.0
   if (!(ld[["maf"]] >= 0 && ld[["maf"]] <= 1)) {
     stop("in argument ld$maf: '", ld[['maf']], "' must be between the values of 0 and 1")
   }
-  filter <- mcols(rowRanges(vcf))[, "altAlleleFreq"] >= ld[["maf"]]
-  fg.filter <- filter & mcols(rowRanges(vcf))[, ld[["metric"]]] >= ld[["cutoff"]]
+  # filter based on minor allel vs alternate allele because alt not always minor
+  # make sure maf is numeric
+  filter <- mcols(rowRanges(vcf))[, "minor_allele_freq"] >= as.numeric(ld[["maf"]])
+  fg.filter <- filter & mcols(rowRanges(vcf))[, ld[["metric"]]] >= as.numeric(ld[["cutoff"]])
   if (strict.subset) {
-    bg.filter <- fg.filter | mcols(rowRanges(vcf))[, ld[["metric"]]] < ld[["cutoff"]]
+    bg.filter <- fg.filter | mcols(rowRanges(vcf))[, ld[["metric"]]] < as.numeric(ld[["cutoff"]])
   } else {
-    bg.filter <- filter & !mcols(rowRanges(vcf))[, ld[["metric"]]] >= ld[["cutoff"]]
+    bg.filter <- filter & !mcols(rowRanges(vcf))[, ld[["metric"]]] >= as.numeric(ld[["cutoff"]])
   }
   metadata(vcf)$strict.subset <- strict.subset
-  bg.filter <- fg.filter | mcols(rowRanges(vcf))[, ld[["metric"]]] < ld[["cutoff"]]
+  bg.filter <- fg.filter | mcols(rowRanges(vcf))[, ld[["metric"]]] < as.numeric(ld[["cutoff"]])
   return(list(fg = vcf[fg.filter & !is.na(fg.filter), ], bg = vcf[bg.filter & !is.na(bg.filter), ]))
 }
 
