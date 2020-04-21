@@ -622,7 +622,7 @@ ShowOverlaps <- function(variants, feature = NULL) {
 #' @importFrom graphics plot
 #' @importFrom stringr str_length
 #' @export
-PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NULL, block2 = NULL, color.by = NULL, colors = NULL, ncol = 1) {
+PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NULL, block2 = NULL, color.by = NULL, colors = NULL, ncol = 1, auto.plot=TRUE) {
 
   ## check args
   if (!is(variant.enrichment, "data.frame"))
@@ -748,7 +748,9 @@ PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NU
   } else {
     ep <- ep + scale_color_identity()
   }
-  plot(ep)
+  if (auto.plot == TRUE) {
+    plot(ep)
+  }
   return(invisible(ep))
 }
 
