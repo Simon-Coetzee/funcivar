@@ -274,11 +274,12 @@ GetBioFeatures <- function(files, genome) {
 #'
 #' @return A GRangesList containing the segmentations imported.
 #' @importFrom rtracklayer import.bed
+#' @importFrom plyr alply
 #' @export
 GetSegmentations <- function(files) {
-  bed.list <- sapply(files, function(file) {
+  bed.list <- alply(files,.margins = 1, function(file) {
     bed <- import.bed(file)
-  })
+  }, .progress = "text")
   bed.names <- sapply(bed.list, function(bed) {
     bed.name <- tryCatch(bed@trackLine@name, error = NA)
   })
@@ -643,7 +644,7 @@ PlotEnrichment <- function(variant.enrichment, value = "difference", block1 = NU
     stop("The y argument must be either 'log.odds.ratio' or 'difference'")
   }
   if(value == "log.odds.ratio") value.name <- "log1p(odds ratio)"
-  if(value == "difference") value.name <- "difference of foreground \nadbackground distributions"
+  if(value == "difference") value.name <- "difference of foreground \nand background distributions"
   if (is.null(color.by)) {
     variant.enrichment$color <- "#ececec"
     variant.enrichment[variant.enrichment$significant, "color"] <- "#ff0000"
