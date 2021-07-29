@@ -983,7 +983,11 @@ enrich.features <- function(fg, bg, CI, prior, strict.subset) {
                          stringsAsFactors = FALSE)
     enrichment <- rbind(enrichment, result)
   }
-  enrichment$significant <- FALSE
-  enrichment[enrichment$probability > (1 - CI) | enrichment$probability < CI, "significant"] <- TRUE
-  return(enrichment)
+  if(nrow(enrichment) < 1) {
+    return(enrichment)
+  } else {
+    enrichment$significant <- FALSE
+    enrichment[enrichment$probability > (1 - CI) | enrichment$probability < CI, "significant"] <- TRUE
+    return(enrichment)
+  }
 }
