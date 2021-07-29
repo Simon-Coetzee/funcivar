@@ -282,7 +282,8 @@ GetSegmentations <- function(files) {
   bed.names <- sapply(bed.list, function(bed) {
 		if (.hasSlot(bed, 'trackLine')) {
 			bed.name <- bed@trackLine@name
-    }
+    } else {
+      bed.name <- NA
   })
   bed.names[is.na(bed.names)] <- files[is.na(bed.names)]
   bed.list <- Map(format.bed, bed.list, bed.names)
@@ -571,7 +572,7 @@ ShowOverlaps <- function(variants, feature = NULL) {
     stop("variants must be either a VCF or GRanges object")
   }
   if (ncol(mcols(variants)) < offset) {
-    return(DataFrame())
+    return(GRanges())
   }
   if (is.null(feature)) {
     if (!is.null(offset)) {
